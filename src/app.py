@@ -231,7 +231,7 @@ def prct_deliveries_indicator_callback(year_slider, pasillo_options, pasillo_sel
                            sections_selector=pasillo_selector,
                            section_options=pasillo_options).groupby("estadoOrden")
 
-    return "{}B".format(str(np.round(dff.sum()["TotalPagado"].sum()/appconfig.sales_scale, 1)))
+    return "%dB" % (dff.sum()["TotalPagado"].sum()/appconfig.sales_scale)
 
 
 @app.callback(Output('cantidad_vendida_serie', 'figure'),
@@ -278,7 +278,7 @@ def update_y_timeseries(year_slider, pasillo_options, pasillo_selector, citysele
                            sections_selector=pasillo_selector,
                            section_options=pasillo_options)
 
-    bin_val = np.histogram(np.log10(dff[dff.cantidadVendida>0].cantidadVendida.values),bins=25)
+    bin_val = np.histogram(np.log10(dff[dff.cantidadVendida>0].cantidadVendida.values))
 
     print("histogram",len(dff.cantidadVendida.values))
     return {'data': [go.Bar(x=bin_val[1],
@@ -353,9 +353,9 @@ def update_y_timeseries(year_slider, pasillo_options, pasillo_selector, citysele
                 title='Histogram Total Sales (Log base 10)',
                 plot_bgcolor=backgroundGraphs['background'],
                 paper_bgcolor=backgroundGraphs['background'],
-                xaxis=dict(title='Frequency',
+                xaxis=dict(title='Log 10 Sales',
                            zerolinecolor='#909395'),
-                yaxis=dict(title='Log 10 Sales',
+                yaxis=dict(title='Frequency',
                            gridcolor='#4e5256',
                            zerolinecolor='#909395'),
                 font=dict(color='#e8e9e9')
