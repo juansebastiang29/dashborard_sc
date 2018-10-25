@@ -10,20 +10,26 @@ import appConfig as appconfig
 
 
 def subset_dataframe(df, location, filter_date, sections_selector, section_options):
+    print("_"*10)
+    print(location, filter_date, sections_selector, section_options)
     if location == 'All':
         location = ''
+
     if sections_selector == 'All':
-        sections_selector = ''
+        sections_selector = ""
         df_sb = df[marks_slider[filter_date[0]]:marks_slider[filter_date[1]]]
         df_sb = df_sb[df_sb.Ciudad.str.contains(location) &
                       df_sb.Pasillo.str.contains(sections_selector)]
+        return df_sb
     elif sections_selector == 'Custom':
+
         df_sb = df[marks_slider[filter_date[0]]:marks_slider[filter_date[1]]]
         df_sb = df_sb[df_sb.Ciudad.str.contains(location) &
                       df_sb.Pasillo.isin(section_options)]
+        return df_sb
     else:
         print("I'm doing something stupid")
-    return df_sb
+
 
 def generate_ts(df):
     return df_sb.resample('D').sum()

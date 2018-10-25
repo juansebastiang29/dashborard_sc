@@ -75,7 +75,7 @@ app.layout = html.Div(
             html.Div([
                     html.P('Filter by Section:'),
                     dcc.RadioItems(id="pasillo_selector",
-                           options=[{'label':'All', 'value':''},
+                           options=[{'label':'All', 'value':'All'},
                                     {'label':'Custom', 'value':'Custom'}],
                            value='All',
                            labelStyle={'display': 'inline-block'}),
@@ -147,6 +147,7 @@ app.layout = html.Div(
 @app.callback(Output('pasillo_options', 'value'),
               [Input('pasillo_selector', 'value')])
 def display_status(selector):
+
     if selector == 'Custom':
         return ['Frutas']
     else:
