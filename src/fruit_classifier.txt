@@ -1,0 +1,32 @@
+digraph Tree {
+node [shape=box] ;
+0 [label="cuenta_gr <= 0.74\nmae = 133.252\nsamples = 14310\nvalue = 98.0"] ;
+1 [label="cuenta_gr <= 0.307\nmae = 42.485\nsamples = 9887\nvalue = 53.0"] ;
+0 -> 1 [labeldistance=2.5, labelangle=45, headlabel="True"] ;
+2 [label="cuenta_gr <= 0.147\nmae = 17.439\nsamples = 6233\nvalue = 31.0"] ;
+1 -> 2 ;
+3 [label="mae = 8.463\nsamples = 3595\nvalue = 20.0"] ;
+2 -> 3 ;
+4 [label="mae = 13.137\nsamples = 2638\nvalue = 52.0"] ;
+2 -> 4 ;
+5 [label="cuenta_gr <= 0.508\nmae = 31.275\nsamples = 3654\nvalue = 121.0"] ;
+1 -> 5 ;
+6 [label="mae = 18.266\nsamples = 1904\nvalue = 96.0"] ;
+5 -> 6 ;
+7 [label="mae = 23.29\nsamples = 1750\nvalue = 149.0"] ;
+5 -> 7 ;
+8 [label="cuenta_gr <= 1.827\nmae = 177.161\nsamples = 4423\nvalue = 309.0"] ;
+0 -> 8 [labeldistance=2.5, labelangle=-45, headlabel="False"] ;
+9 [label="cuenta_gr <= 1.152\nmae = 95.436\nsamples = 3243\nvalue = 264.0"] ;
+8 -> 9 ;
+10 [label="mae = 70.404\nsamples = 1885\nvalue = 222.0"] ;
+9 -> 10 ;
+11 [label="mae = 77.038\nsamples = 1358\nvalue = 338.0"] ;
+9 -> 11 ;
+12 [label="cuenta_gr <= 3.075\nmae = 184.76\nsamples = 1180\nvalue = 610.5"] ;
+8 -> 12 ;
+13 [label="mae = 87.529\nsamples = 814\nvalue = 543.0"] ;
+12 -> 13 ;
+14 [label="mae = 199.907\nsamples = 366\nvalue = 919.5"] ;
+12 -> 14 ;
+}
