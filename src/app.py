@@ -9,15 +9,23 @@ from dash.dependencies import Output
 from dash.dependencies import Input
 from DataWrangling import *
 import appConfig as appconfig
+from LSTM_ts import *
+import pickle
+from keras.models import load_model
+import os
+from flask_caching import Cache
+import dash_table as dt
 
 # Setup the app
 app = dash.Dash('MerqueoModelDashboard')
 
-
-external_js = ['https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js',
-               'https://pythonprogramming.net/static/socialsentiment/googleanalytics.js']
-for js in external_js:
-    app.scripts.append_script({'external_url': js})
+CACHE_CONFIG = {
+    # try 'filesystem' if you don't want to setup redis
+    'CACHE_TYPE': 'filesystem',
+    'CACHE_DIR': "cache-directory"
+}
+cache = Cache()
+cache.init_app(app.server, config=CACHE_CONFIG)
 
 sentiment_colors = {-1:"#EE6055",
                     -0.5:"#FDE74C",
@@ -33,8 +41,6 @@ app_colors = {
 }
 
 backgroundGraphs = {'background': '#171b1e'}
-
-df_pasillo_cat = df.groupby(["Pasillo","Categoria"],as_index=False).sum()[['Pasillo','Categoria','cuenta_gr']]
 
 app.layout = html.Div(
     html.Div(
@@ -56,11 +62,6 @@ app.layout = html.Div(
             html.H5('', id='year_text', className='four columns', style={'text-align': 'right'})
                   ],className="row"
         ),
-        html.Div([html.P('Filter by City:'),
-            dcc.RadioItems(id="cityselector",
-                           options=ciudad_options,
-                           value='All',
-                           labelStyle={'display': 'inline-block'})]),
         html.Div([
             html.P('Filter by date:', style={'margin-top': '5'}),
             html.Div([dcc.RangeSlider(id='year_slider',
@@ -73,16 +74,10 @@ app.layout = html.Div(
         ], style={'margin-top': '20'}),
         html.Div([
             html.Div([
-                    html.P('Filter by Section:'),
-                    dcc.RadioItems(id="pasillo_selector",
-                           options=[{'label':'All', 'value':'All'},
-                                    {'label':'Custom', 'value':'Custom'}],
-                           value='All',
-                           labelStyle={'display': 'inline-block'}),
-                    dcc.Dropdown(id='pasillo_options',
-                                 options=pasillo_options,
-                                 multi=True,
-                                 value=[])
+                    html.P('Filter by product:'),
+                    dcc.Dropdown(id='product_options',
+                                 options=products_opt,
+                                 value=products[0])
             ],className="six columns")
         ], className="row", style={'margin-top': '30'}),
         html.Div(children='Dash: A web application framework for Python.',
@@ -97,76 +92,107 @@ app.layout = html.Div(
                 ),
             indicator(
                     "#119DFF",
-                    "Delivered",
-                    "prct_delivered",
+                    "Total Epochs",
+                    "total_epoch",
                 ),
             indicator(
                     "#EF553B",
-                    "Total Sales Delivered orders",
-                    "total_sales_delv",
+                    "MAE",
+                    "MAE_model",
                 )],className="row"),
         html.Div([
             html.Div(
                 [
                     dcc.Graph(id='cantidad_vendida_serie',
                               animate=False)
-                ],className='eight columns',
+                ],className='six columns',
                 style={'margin-top': '20'}),
             html.Div(
                 [
                     dcc.Graph(id='individual_graph_1')
                 ],className='four columns',
-                style={'margin-top': '20'})
-            ],className="row"),
-        html.Div([
-            html.Div(
-                [
-                    dcc.Graph(id='sales_series',
-                              animate=False)
-                ],className='eight columns',
                 style={'margin-top': '20'}),
             html.Div(
                 [
-                    dcc.Graph(id='individual_graph_2')
-                ],className='four columns',
+                    dt.DataTable(id="forecast_table",
+                                 columns=[{'id':'Date','name':'Date'},
+                                          {'id':'Prediction','name':'Prediction'}],
+                                 data=[{}],
+                                 style_cell={
+                                     # 'backgroundColor': 'rgb(50, 50, 50)',
+                                     # 'color': 'white',
+                                     'textAlign': 'center',
+                                     'fontSize':18
+                                 },
+                                 style_as_list_view=True,
+                                 style_header={
+                                     # 'backgroundColor': 'rgb(30, 30, 30)',
+                                     'fontWeight': 'bold',
+                                     'fontSize':18})
+                ],className='two columns',
                 style={'margin-top': '20'})
-            ],className='row')
+            ],className="row")
         ],className="row", style={'margin-right':'20', 'margin-left':'20'}),
         html.Link(href="https://cdn.rawgit.com/amadoukane96/8a8cfdac5d2cecad866952c52a70a50e/raw/cd5a9bf0b30856f4fc7e3812162c74bfc0ebe011/dash_crm.css", rel="stylesheet"),
-        html.Link(href="https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css",rel="stylesheet")
+        html.Link(href="https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css",rel="stylesheet"),
+        html.Pre(id='output'),
+        # hidden signal value
+        html.Div(id='signal', style={'display': 'none'})
     ],
     style={'font' : dict(family = "Helvetica",
                        size = 14,
                        color = '#CCCCCC',)}
 ),style={'backgroundColor':'#ffff'})
 
-# Create callbacks
 
+# perform expensive computations in this "global store"
+# these computations are cached in a globally available
+# redis memory store which is available across processes
+# and for all time.
+@cache.memoize(timeout=appconfig.TIMEOUT)
+def global_store(product_options):
+    dff = subset_dataframe_2(df=df, product_options=product_options)
+    df_sb_b = dff.resample('D').sum()
 
-# Radio -> multi
-@app.callback(Output('pasillo_options', 'value'),
-              [Input('pasillo_selector', 'value')])
-def display_status(selector):
+    ## Model
+    # train the model
+    serie = create_sequence(df_sb_b.cantidadVendida)
+    data_model = train_test_reshape(serie=serie,
+                                    product_name=product_options)
+    history = train_model(data_trainig=data_model)
+    model_loss = history.history['loss']
+    model_val_loss = history.history['val_loss']
 
-    if selector == 'Custom':
-        return ['Frutas']
-    else:
-        return []
+    # model predictions
+    error, prediction, train_prediction = compute_mae(model=load_model("../Output/model_%s.h5" % data_model['product_name']),
+                                    data_trainig=data_model)
+    forcast_7_days, new_index = forecasting_7_days(model=load_model("../Output/model_%s.h5"\
+                                                                    % data_model['product_name']),
+                                                   data_trainig=data_model)
+    data_model.update({"model_loss": model_loss,
+                       "model_val_loss": model_val_loss,
+                       "error": [error],
+                       "test_prediction": prediction,
+                       "train_prediction": train_prediction,
+                       "forcast_7_days": forcast_7_days,
+                       "new_index": new_index})
+    # # write the output
+    # if os.path.exists("../Output/dict.pickle"):
+    #     os.remove("../Output/dict.pickle")
+    # else:
+    #     print("The model does not exist")
+    # pickle_out = open("../Output/dict.pickle", "wb")
+    # pickle.dump(data_model, pickle_out)
+    # pickle_out.close()
 
-# # Radio -> multi
-# @app.callback(Output('categoria_options', 'value'),
-#               [Input('categoria_selector', 'value'),
-#                Input("pasillo_options","value"),
-#                Input("pasillo_selector","value")])
-# def display_status(pasillo_options, pasillo_selector, selector):
-#     if pasillo_selector == 'Custom':
-#         list = df_pasillo_cat[df_pasillo_cat.Pasillo.isin(pasillo_options)].Categoria.unique().tolist()
-#     else:
-#         list = df_pasillo_cat[df_pasillo_cat.Pasillo.str.contains(pasillo_options)].Categoria.unique().tolist()
-#     if selector == 'Custom':
-#         return list
-#     else:
-#         return []
+    return data_model
+
+@app.callback(Output('signal', 'children'),
+              [Input('product_options', 'value')])
+def compute_value(value):
+    # compute value and send a signal when done
+    global_store(value)
+    return value
 
 # Selectors -> well text
 @app.callback(Output('ventas_text', 'children'),
@@ -189,181 +215,99 @@ def update_well_text(year_slider):
                                              for e in zip(difagg.index, difagg.values)])
 
 @app.callback(Output('TotalDeliveries', 'children'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def total_deliveries_indicator_callback(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options).groupby("estadoOrden")
-
+              [Input('product_options', 'value')])
+def total_deliveries_indicator_callback(product_options):
+    dff = subset_dataframe_2(df, product_options)
     return "{}K".format(str(np.round(dff.sum()["cuenta_gr"].sum()/appconfig.orders_scale, 1)))
 
-@app.callback(Output('prct_delivered', 'children'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def prct_deliveries_indicator_callback(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options).groupby("estadoOrden")
-    difagg = dff.sum()[["cuenta_gr"]] / \
-             dff.sum()[["cuenta_gr"]].sum()
-    return "{}%".format(str(np.round(difagg.loc['Delivered'].values[0], 3) * 100))
+@app.callback(Output('total_epoch', 'children'),
+              [Input('product_options', 'value'),
+               Input('signal', 'children')])
+def prct_deliveries_indicator_callback(product_options, value):
+    dict_G = global_store(value)
+    return "{}".format(len(dict_G["model_loss"]))
 
-@app.callback(Output('total_sales_delv', 'children'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def prct_deliveries_indicator_callback(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options).groupby("estadoOrden")
+@app.callback(Output('MAE_model', 'children'),
+              [Input('product_options', 'value'),
+               Input('signal', 'children')])
+def prct_deliveries_indicator_callback(product_options, value):
+    dict_G = global_store(value)
+    return "%.2f" % (dict_G["error"][0])
 
-    return "%dB" % (dff.sum()["TotalPagado"].sum()/appconfig.sales_scale)
-
-
+# Graph real vs Predicted ts and forecasting for 7 days
 @app.callback(Output('cantidad_vendida_serie', 'figure'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def update_y_timeseries(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options)
-    df_sb_b = dff.resample('D').sum()
+              [Input('product_options', 'value'),
+               Input('signal', 'children')])
+def update_y_timeseries(product_options, value):
 
-    return {'data': [go.Scatter(x=df_sb_b.index,
-                                y=df_sb_b.cantidadVendida.values,
-                                line=dict(color = '#236bb2',
-                                          width = 2,))],
+    dict_G = global_store(value)
+
+    return {'data': [go.Scatter(x=dict_G["train_index"].tolist()+\
+                                  dict_G["test_index"].tolist(),
+                                y=dict_G["serie"].values[:,1],
+                                name="real"),
+                     go.Scatter(x=dict_G["train_index"].tolist()+\
+                                  dict_G["test_index"].tolist(),
+                                y=np.concatenate((dict_G["train_prediction"],
+                                                  dict_G["test_prediction"]), axis= 0).flatten(),
+                                name="Prediction"),
+                     go.Scatter(x=dict_G["new_index"],
+                                y=dict_G["forcast_7_days"],
+                                name="Forecast(7 days)")],
+
             'layout': go.Layout(
-                title='Daily Sold Quantities',
-                plot_bgcolor = backgroundGraphs['background'],
-                paper_bgcolor = backgroundGraphs['background'],
+                title='Daily Sold Quantities %s' % product_options,
+                plot_bgcolor=backgroundGraphs['background'],
+                paper_bgcolor=backgroundGraphs['background'],
                 xaxis=dict(title='Time in Days',
                            gridcolor='#4e5256',
                            zerolinecolor='#909395'),
                 yaxis=dict(title='Sold Quantities',
                            gridcolor='#4e5256',
                            zerolinecolor='#909395'),
-                font = dict(color='#e8e9e9')
+                font = dict(color='#e8e9e9', size=14)
             )}
 
+# Graph for learning curve
 @app.callback(Output('individual_graph_1', 'figure'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def update_y_timeseries(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options)
+              [Input('product_options', 'value'),
+               Input('signal', 'children')])
+def update_y_timeseries(product_options,value):
 
-    bin_val = np.histogram(np.log10(dff[dff.cantidadVendida>0].cantidadVendida.values))
+    dict_G = global_store(value)
 
-    print("histogram",len(dff.cantidadVendida.values))
-    return {'data': [go.Bar(x=bin_val[1],
-                            y=bin_val[0],
-                            marker=go.Marker(
-                                color='#66b3ff'))],
+    return {'data': [go.Scatter(x=list(range(len(dict_G["model_loss"]))),
+                                y=dict_G["model_loss"],
+                                name="training-loss"),
+                     go.Scatter(x=list(range(len(dict_G["model_loss"]))),
+                                y=dict_G["model_val_loss"],
+                                name="validation-loss")],
             'layout': go.Layout(
-                title='Histogram Sold Quantities (Log base 10)',
+                title='Learning Curve',
                 plot_bgcolor=backgroundGraphs['background'],
                 paper_bgcolor=backgroundGraphs['background'],
-                xaxis=dict(title='Log 10 Sold Quantity',
+                xaxis=dict(title='Epoch',
                            zerolinecolor='#909395'),
-                yaxis=dict(title='Frequency',
+                yaxis=dict(title='Mean Absolute Error',
                            gridcolor='#4e5256',
                            zerolinecolor='#909395'),
-                font=dict(color='#e8e9e9')
+                font=dict(color='#e8e9e9', size=14)
 
             )}
+# table
+@app.callback(Output('forecast_table','data'),
+              [Input('product_options', 'value'),
+               Input('signal', 'children')])
+def make_table_forecast(product_options,value):
+    dict_G = global_store(value)
+    index_ = [date.strftime('%Y-%m-%d') for date in dict_G["new_index"]]
+    predictions_ = [round(num_) for num_ in dict_G["forcast_7_days"]]
+    dff = pd.DataFrame(list(zip(index_,predictions_)), columns=['Date', 'Prediction'])
+    return dff.to_dict("rows")
 
-@app.callback(Output('sales_series', 'figure'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def update_sales_timeseries(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options)
-    df_sb_b = dff.resample('D').sum()
 
-    return {'data': [go.Scatter(x=df_sb_b.index,
-                                y=np.log10(df_sb_b.TotalPagado.values),
-                                line=dict(color = '#236bb2',
-                                          width = 2,))],
-            'layout': go.Layout(
-                title='Daily Sales',
-                plot_bgcolor = backgroundGraphs['background'],
-                paper_bgcolor = backgroundGraphs['background'],
-                xaxis=dict(title='Time in Days',
-                           gridcolor='#4e5256',
-                           zerolinecolor='#909395'),
-                yaxis=dict(title='Log 10 Sales',
-                           gridcolor='#4e5256',
-                           zerolinecolor='#909395'),
-                font = dict(color='#e8e9e9')
-            )}
-
-@app.callback(Output('individual_graph_2', 'figure'),
-              [Input('year_slider', 'value'),
-               # Input('categoria_selector','value'),
-               Input('pasillo_options','value'),
-               Input('pasillo_selector','value'),
-               Input('cityselector', 'value')])
-def update_y_timeseries(year_slider, pasillo_options, pasillo_selector, cityselector):
-    dff = subset_dataframe(df=df,
-                           location=cityselector,
-                           filter_date=year_slider,
-                           sections_selector=pasillo_selector,
-                           section_options=pasillo_options)
-
-    bin_val = np.histogram(np.log10(dff[dff.TotalPagado>0].TotalPagado.values),bins=50)
-
-    print("histogram",len(dff.cantidadVendida.values))
-    return {'data': [go.Bar(x=bin_val[1],
-                            y=bin_val[0],
-                            marker=go.Marker(
-                                color='#66b3ff'))],
-            'layout': go.Layout(
-                title='Histogram Total Sales (Log base 10)',
-                plot_bgcolor=backgroundGraphs['background'],
-                paper_bgcolor=backgroundGraphs['background'],
-                xaxis=dict(title='Log 10 Sales',
-                           zerolinecolor='#909395'),
-                yaxis=dict(title='Frequency',
-                           gridcolor='#4e5256',
-                           zerolinecolor='#909395'),
-                font=dict(color='#e8e9e9')
-
-            )}
 
 if __name__ == '__main__':
     app.run_server(debug=True,
-                   host="0.0.0.0",
+                   #host="0.0.0.0",
                    threaded=True)
