@@ -1,4 +1,4 @@
 Data/
 README.html
 Output/*
-cache-directory/*
+src/cache-directory/*
