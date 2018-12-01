@@ -1,6 +1,7 @@
 import dash_html_components as html
 import pandas as pd
 import numpy as np
+import sys
 
 def subset_dataframe(df, location,
                      filter_date,
@@ -24,7 +25,6 @@ def subset_dataframe(df, location,
         return df_sb
     else:
         print("I'm doing something stupid")
-
 
 def subset_dataframe_2(df, product_options):
     df_sb = df[df.NombreProducto.str.contains(product_options)]
@@ -53,7 +53,7 @@ def indicator(color, text, id_value):
 
 df = pd.read_csv("../Data/AGG_MERQUEO.csv", encoding='latin1')
 
-with open("products_filter.txt","r") as f:
+with open("products_filter.txt","r", encoding="utf-8") as f:
     products = f.read().split("\n")
 
 df['FechaCreaciónOrden'] = pd.to_datetime(df.FechaCreaciónOrden)

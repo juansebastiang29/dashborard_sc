@@ -269,7 +269,7 @@ def update_y_timeseries(product_options, train_test_split, value):
 
     return {'data': [go.Scatter(x=dict_G["train_index"].tolist()+\
                                   dict_G["test_index"].tolist(),
-                                y=dict_G["serie"].values[:,1],
+                                y=dict_G["serie"].values,
                                 name="real"),
                      go.Scatter(x=dict_G["train_index"].tolist(),
                                 y=dict_G["train_prediction"].flatten(),
