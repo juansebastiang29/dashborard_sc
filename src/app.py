@@ -10,9 +10,7 @@ from dash.dependencies import Input
 from DataWrangling import *
 import appConfig as appconfig
 from LSTM_ts import *
-import pickle
 from keras.models import load_model
-import os
 from flask_caching import Cache
 import dash_table as dt
 
@@ -78,8 +76,21 @@ app.layout = html.Div(
                     dcc.Dropdown(id='product_options',
                                  options=products_opt,
                                  value=products[0])
-            ],className="six columns")
-        ], className="row", style={'margin-top': '30'}),
+            ],className="six columns"),
+            html.Div([
+                html.P('Select train split:'),
+                html.Div([dcc.Slider(id='train_test_split',
+                                     min=0.4,
+                                     max=1,
+                                     step=0.1,
+                                     marks={i: '{}'.format(np.round(i, 1)) for i in\
+                                            np.linspace(start=0.4, stop=1, num=7)},
+                                     value=0.7)],
+                         style={'margin-top': '10',
+                                'margin-right':'20',
+                                'margin-left':'20',}),
+            ], className="four columns", style={'margin-top': '5', 'align':"right"}),
+        ], className="row", style={'margin-top': '30',}),
         html.Div(children='Dash: A web application framework for Python.',
                  className='col s12 m6 l6',
                  style={'color':'#000000',
@@ -99,18 +110,18 @@ app.layout = html.Div(
                     "#EF553B",
                     "MAE",
                     "MAE_model",
-                )],className="row"),
+                )], className="row"),
         html.Div([
             html.Div(
                 [
                     dcc.Graph(id='cantidad_vendida_serie',
                               animate=False)
-                ],className='six columns',
+                ], className='six columns',
                 style={'margin-top': '20'}),
             html.Div(
                 [
                     dcc.Graph(id='individual_graph_1')
-                ],className='four columns',
+                ], className='four columns',
                 style={'margin-top': '20'}),
             html.Div(
                 [
@@ -129,10 +140,10 @@ app.layout = html.Div(
                                      # 'backgroundColor': 'rgb(30, 30, 30)',
                                      'fontWeight': 'bold',
                                      'fontSize':18})
-                ],className='two columns',
+                ], className='two columns',
                 style={'margin-top': '20'})
-            ],className="row")
-        ],className="row", style={'margin-right':'20', 'margin-left':'20'}),
+            ], className="row")
+        ], className="row", style={'margin-right':'20', 'margin-left':'20'}),
         html.Link(href="https://cdn.rawgit.com/amadoukane96/8a8cfdac5d2cecad866952c52a70a50e/raw/cd5a9bf0b30856f4fc7e3812162c74bfc0ebe011/dash_crm.css", rel="stylesheet"),
         html.Link(href="https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css",rel="stylesheet"),
         html.Pre(id='output'),
@@ -150,7 +161,10 @@ app.layout = html.Div(
 # redis memory store which is available across processes
 # and for all time.
 @cache.memoize(timeout=appconfig.TIMEOUT)
-def global_store(product_options):
+def global_store(tools_):
+    product_options = tools_[0]
+    train_test_split = tools_[1]
+
     dff = subset_dataframe_2(df=df, product_options=product_options)
     df_sb_b = dff.resample('D').sum()
 
@@ -158,7 +172,8 @@ def global_store(product_options):
     # train the model
     serie = create_sequence(df_sb_b.cantidadVendida)
     data_model = train_test_reshape(serie=serie,
-                                    product_name=product_options)
+                                    product_name=product_options,
+                                    split=train_test_split)
     history = train_model(data_trainig=data_model)
     model_loss = history.history['loss']
     model_val_loss = history.history['val_loss']
@@ -187,12 +202,16 @@ def global_store(product_options):
 
     return data_model
 
+
 @app.callback(Output('signal', 'children'),
-              [Input('product_options', 'value')])
-def compute_value(value):
+              [Input('product_options', 'value'),
+               Input('train_test_split', 'value')])
+def compute_value(value, value2):
     # compute value and send a signal when done
+    value = [value, value2]
     global_store(value)
     return value
+
 
 # Selectors -> well text
 @app.callback(Output('ventas_text', 'children'),
@@ -201,10 +220,12 @@ def update_well_text(year_slider):
     return "Total Sales %dB" % (df[marks_slider[year_slider[0]]:marks_slider[year_slider[1]]]\
                                        ['TotalPagado'].sum()/appconfig.sales_scale)
 
+
 @app.callback(Output('year_text', 'children'),
               [Input('year_slider', 'value')])
 def update_well_text(year_slider):
     return " | ".join([marks_slider[e] for e in year_slider])
+
 
 @app.callback(Output('ventas_ciudades', 'children'),
               [Input('year_slider', 'value')])
@@ -214,16 +235,19 @@ def update_well_text(year_slider):
     return " | ".join(["%s %dB" % (e[0], e[1] / appconfig.sales_scale)\
                                              for e in zip(difagg.index, difagg.values)])
 
+
 @app.callback(Output('TotalDeliveries', 'children'),
               [Input('product_options', 'value')])
 def total_deliveries_indicator_callback(product_options):
     dff = subset_dataframe_2(df, product_options)
     return "{}K".format(str(np.round(dff.sum()["cuenta_gr"].sum()/appconfig.orders_scale, 1)))
 
+
 @app.callback(Output('total_epoch', 'children'),
               [Input('product_options', 'value'),
+               Input('train_test_split', 'value'),
                Input('signal', 'children')])
-def prct_deliveries_indicator_callback(product_options, value):
+def prct_deliveries_indicator_callback(product_options, train_test_split, value):
     dict_G = global_store(value)
     return "{}".format(len(dict_G["model_loss"]))
 
@@ -237,8 +261,9 @@ def prct_deliveries_indicator_callback(product_options, value):
 # Graph real vs Predicted ts and forecasting for 7 days
 @app.callback(Output('cantidad_vendida_serie', 'figure'),
               [Input('product_options', 'value'),
+               Input('train_test_split', 'value'),
                Input('signal', 'children')])
-def update_y_timeseries(product_options, value):
+def update_y_timeseries(product_options, train_test_split, value):
 
     dict_G = global_store(value)
 
@@ -246,11 +271,12 @@ def update_y_timeseries(product_options, value):
                                   dict_G["test_index"].tolist(),
                                 y=dict_G["serie"].values[:,1],
                                 name="real"),
-                     go.Scatter(x=dict_G["train_index"].tolist()+\
-                                  dict_G["test_index"].tolist(),
-                                y=np.concatenate((dict_G["train_prediction"],
-                                                  dict_G["test_prediction"]), axis= 0).flatten(),
-                                name="Prediction"),
+                     go.Scatter(x=dict_G["train_index"].tolist(),
+                                y=dict_G["train_prediction"].flatten(),
+                                name="Prediction\nTrain"),
+                     go.Scatter(x=dict_G["test_index"].tolist(),
+                                y=dict_G["test_prediction"].flatten(),
+                                name="Prediction\nTest"),
                      go.Scatter(x=dict_G["new_index"],
                                 y=dict_G["forcast_7_days"],
                                 name="Forecast(7 days)")],
@@ -278,10 +304,10 @@ def update_y_timeseries(product_options,value):
 
     return {'data': [go.Scatter(x=list(range(len(dict_G["model_loss"]))),
                                 y=dict_G["model_loss"],
-                                name="training-loss"),
+                                name="Training"),
                      go.Scatter(x=list(range(len(dict_G["model_loss"]))),
                                 y=dict_G["model_val_loss"],
-                                name="validation-loss")],
+                                name="Validation")],
             'layout': go.Layout(
                 title='Learning Curve',
                 plot_bgcolor=backgroundGraphs['background'],

@@ -27,11 +27,6 @@ from keras.backend import get_session
 from keras.backend import set_session
 import tensorflow as tf
 
-# Set a random seed for getting reproducible results
-from numpy.random import seed
-seed(29)
-from tensorflow import set_random_seed
-set_random_seed(1991)
 
 # arreglo de matriz
 def create_sequence(serie):
@@ -44,9 +39,9 @@ def create_sequence(serie):
     return serie
 
 
-def train_test_reshape(serie, product_name ):
+def train_test_reshape(serie, product_name, split):
     # dividir la data
-    train_size = int(len(serie) * 0.7)
+    train_size = int(len(serie) * split)
     test_size = len(serie) - train_size
     train, test = serie.iloc[0:train_size, :], serie.iloc[train_size:len(serie), :]
     train_index, test_index = serie.iloc[0:train_size, :].index, \
@@ -80,6 +75,13 @@ def train_model(data_trainig):
 
     var = tf.Variable(0)
     with tf.Session() as session:
+
+        # Set a random seed for getting reproducible results
+        from numpy.random import seed
+        seed(29)
+        from tensorflow import set_random_seed
+        set_random_seed(1991)
+
         # configure early stopping
         call_back_ = callbacks.EarlyStopping(monitor='val_loss',
                                              min_delta=0.00001,
@@ -93,13 +95,14 @@ def train_model(data_trainig):
         model = Sequential()
         model.add(LSTM(32, input_shape=(1, 1),return_sequences=True))
         model.add(LSTM(32))
-        model.add(Dropout(0.3))
+        model.add(Dense(16))
+        model.add(Dropout(0.7))
         model.add(Dense(1))
-        model.compile(loss='mean_absolute_error', optimizer='adam')
+        model.compile(loss='mean_absolute_error', optimizer='adadelta')
         model.summary()
         history = model.fit(data_trainig['X_train'], data_trainig['Y_train'],
                             validation_data=(data_trainig['X_test'], data_trainig['Y_test']),
-                            epochs=200,
+                            epochs=300,
                             batch_size=1,
                             verbose=1,
                             callbacks=[call_back_])
