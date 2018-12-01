@@ -24,30 +24,35 @@ RUN rm Anaconda3-5.0.1-Linux-x86_64.sh
 ENV PATH /root/anaconda3/bin:$PATH
 
 # Updating Anaconda packages
-#RUN conda update conda
-#RUN conda update anaconda
-#RUN conda update --all
+RUN conda update conda
+RUN conda update anaconda
+RUN conda update --all
 
 ARG KERAS_VERSION=2.1.4
 ENV KERAS_BACKEND=theano
 
 RUN pip install --upgrade pip
-RUN pip --no-cache-dir install --no-dependencies git+https://github.com/fchollet/keras.git@${KERAS_VERSION}
+RUN pip install tensorflow
+RUN pip install keras
+RUN pip install theano
+#RUN git config --local http.sslBackend "openssl"
+
+#RUN pip install --no-dependencies git+https://github.com/fchollet/keras.git@${KERAS_VERSION}
 
 # Install Theano and set up Theano config (.theanorc) OpenBLAS
-RUN pip --no-cache-dir install git+git://github.com/Theano/Theano.git@${THEANO_VERSION} && \
-	\
-	echo "[global]\ndevice=cpu\nfloatX=float32\nmode=FAST_RUN \
-		\n[lib]\ncnmem=0.95 \
-		\n[nvcc]\nfastmath=True \
-		\n[blas]\nldflag = -L/usr/lib/openblas-base -lopenblas \
-		\n[DebugMode]\ncheck_finite=1" \
-	> /root/.theanorc
+#RUN pip --no-cache-dir install git+git://github.com/Theano/Theano.git@${THEANO_VERSION} && \
+#	\
+#	echo "[global]\ndevice=cpu\nfloatX=float32\nmode=FAST_RUN \
+#		\n[lib]\ncnmem=0.95 \
+#		\n[nvcc]\nfastmath=True \
+#		\n[blas]\nldflag = -L/usr/lib/openblas-base -lopenblas \
+#		\n[DebugMode]\ncheck_finite=1" \
+#	> /root/.theanorc
 
 # quick test and dump package lists
-RUN python -c "import theano; print(theano.__version__)" \
- && dpkg-query -l > /dpkg-query-l.txt \
- && pip freeze > /pip-freeze.txt
+#RUN python -c "import theano; print(theano.__version__)" \
+# && dpkg-query -l > /dpkg-query-l.txt \
+# && pip freeze > /pip-freeze.txt
 
 RUN pip install pandas dash dash_core_components dash_html_components plotly flask_caching dash_table
 

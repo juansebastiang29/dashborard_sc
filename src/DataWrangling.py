@@ -1,7 +1,6 @@
 import dash_html_components as html
 import pandas as pd
 import numpy as np
-import sys
 
 def subset_dataframe(df, location,
                      filter_date,

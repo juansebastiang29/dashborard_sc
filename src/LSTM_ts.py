@@ -1,34 +1,16 @@
-import pandas as pd
-import os
-import sys
-from datetime import datetime
-from datetime import timedelta
-import numpy as np
-from pandas import read_csv
-import math
-import h5py
-
 import numpy
-import matplotlib.pyplot as plt
-from pandas import read_csv
-import math
-from keras.models import Sequential
-from keras.models import save_model
-from keras.layers import Dense, Dropout, Activation
-from keras.layers.recurrent import LSTM
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-from keras.layers import Convolution2D, MaxPooling2D
-from keras.optimizers import SGD
+import numpy as np
+import pandas as pd
+import tensorflow as tf
 from keras import callbacks
-from sklearn import metrics
 from keras.backend import clear_session
 from keras.backend import get_session
-from keras.backend import set_session
-import tensorflow as tf
+from keras.layers import Dense, Dropout
+from keras.layers.recurrent import LSTM
+from keras.models import Sequential
+from keras.models import save_model
+from sklearn import metrics
 from sklearn.preprocessing import MinMaxScaler
-
-
 
 scaler = MinMaxScaler(feature_range=(0, 1))
 
