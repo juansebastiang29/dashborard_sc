@@ -4,10 +4,6 @@ FROM debian:stretch
 
 #Don't ask questions during install
 ENV DEBIAN_FRONTEND noninteractive
-RUN locale-gen en_US.UTF-8
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
 
 RUN apt-get update -qq \
  && apt-get install --no-install-recommends -y \
@@ -17,8 +13,14 @@ RUN apt-get update -qq \
     git \
     wget \
     openssh-client \
+    locales\
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
 # Anaconda installing
 RUN wget --no-check-certificate https://repo.continuum.io/archive/Anaconda3-5.0.1-Linux-x86_64.sh
