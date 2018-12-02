@@ -1,6 +1,6 @@
-# docker-keras - Keras in Docker with Python 3 and Theano on CPU
+# docker-keras - Keras in Docker with Python 3 and tensorflow on CPU
 
-FROM debian:stretch
+FROM ubuntu:stretch
 
 #Don't ask questions during install
 ENV DEBIAN_FRONTEND noninteractive
@@ -14,6 +14,7 @@ RUN apt-get update -qq \
     wget \
     openssh-client \
     locales\
+    nano\
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
