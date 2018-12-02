@@ -4,6 +4,10 @@ FROM debian:stretch
 
 #Don't ask questions during install
 ENV DEBIAN_FRONTEND noninteractive
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
 RUN apt-get update -qq \
  && apt-get install --no-install-recommends -y \
@@ -28,13 +32,11 @@ RUN conda update conda
 RUN conda update anaconda
 RUN conda update --all
 
-ARG KERAS_VERSION=2.1.4
-ENV KERAS_BACKEND=theano
 
 RUN pip install --upgrade pip
 RUN pip install tensorflow
 RUN pip install keras
-RUN pip install theano
+#RUN pip install theano
 #RUN git config --local http.sslBackend "openssl"
 
 #RUN pip install --no-dependencies git+https://github.com/fchollet/keras.git@${KERAS_VERSION}
