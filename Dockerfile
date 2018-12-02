@@ -18,9 +18,6 @@ RUN apt-get update -qq \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-COPY ./default_locale /etc/default/locale
-RUN chmod 0755 /etc/default/locale
-
 RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
