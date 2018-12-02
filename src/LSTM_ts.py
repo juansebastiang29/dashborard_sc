@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy
 import numpy as np
 import pandas as pd
@@ -100,8 +101,9 @@ def train_model(data_trainig):
                             batch_size=1,
                             verbose=1,
                             callbacks=[call_back_])
+        filepath = "../Output/model_%s.h5" % data_trainig['product_name']
 
-        save_model(filepath="../Output/model_%s.h5".encode('utf8') % data_trainig['product_name'],
+        save_model(filepath.encode(encoding='ascii', errors="?"),
                    model=model,
                    overwrite=True,
                    include_optimizer=False)
