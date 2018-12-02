@@ -179,7 +179,9 @@ def global_store(tools_):
     model_val_loss = history.history['val_loss']
 
     # model predictions
-    error, prediction, train_prediction = compute_mae(model=load_model("../Output/model_%s.h5" % data_model['product_name']),
+    file_name = "../Output/model_%s.h5" % data_model['product_name']
+    file_name = file_name.encode(encoding='ascii')
+    error, prediction, train_prediction = compute_mae(model=load_model(file_name),
                                     data_trainig=data_model)
     forcast_7_days, new_index = forecasting_7_days(model=load_model("../Output/model_%s.h5"\
                                                                     % data_model['product_name']),
