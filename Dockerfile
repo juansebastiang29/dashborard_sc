@@ -1,6 +1,6 @@
 # docker-keras - Keras in Docker with Python 3 and tensorflow on CPU
 
-FROM ubuntu:stretch
+FROM debian:stretch
 
 #Don't ask questions during install
 ENV DEBIAN_FRONTEND noninteractive
@@ -18,6 +18,9 @@ RUN apt-get update -qq \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
+COPY ./default_locale /etc/default/locale
+RUN chmod 0755 /etc/default/locale
+
 RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
@@ -29,6 +32,7 @@ RUN bash Anaconda3-5.0.1-Linux-x86_64.sh -b
 RUN rm Anaconda3-5.0.1-Linux-x86_64.sh
 # Set path to conda
 ENV PATH /root/anaconda3/bin:$PATH
+ENV PYTHONIOENCODING=utf-8
 
 # Updating Anaconda packages
 RUN conda update conda
