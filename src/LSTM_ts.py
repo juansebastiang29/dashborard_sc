@@ -101,7 +101,7 @@ def train_model(data_trainig):
                             verbose=1,
                             callbacks=[call_back_])
 
-        save_model(filepath="../Output/model_%s.h5" % data_trainig['product_name'],
+        save_model(filepath="../Output/model_%s.h5".encode('utf8') % data_trainig['product_name'],
                    model=model,
                    overwrite=True,
                    include_optimizer=False)

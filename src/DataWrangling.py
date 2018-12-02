@@ -52,7 +52,7 @@ def indicator(color, text, id_value):
 
 df = pd.read_csv("../Data/AGG_MERQUEO.csv", encoding='latin1')
 
-with open("products_filter.txt","r") as f:
+with open("products_filter.txt","r",encoding='utf-8') as f:
     products = f.read().split("\n")
 
 df['FechaCreaciónOrden'] = pd.to_datetime(df.FechaCreaciónOrden)
