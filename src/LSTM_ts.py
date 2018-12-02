@@ -103,7 +103,7 @@ def train_model(data_trainig):
                             callbacks=[call_back_])
         filepath = "../Output/model_%s.h5" % data_trainig['product_name']
 
-        save_model(filepath.encode(encoding='ascii', errors="_"),
+        save_model(filepath.encode(encoding='ascii', errors="ignore"),
                    model=model,
                    overwrite=True,
                    include_optimizer=False)
