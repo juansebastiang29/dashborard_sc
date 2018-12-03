@@ -79,7 +79,7 @@ def train_model(data_trainig):
         set_random_seed(1991)
 
         # configure early stopping
-        call_back_ = callbacks.EarlyStopping(monitor='loss',
+        call_back_ = callbacks.EarlyStopping(monitor='val_loss',
                                              min_delta=0.0000001,
                                              patience=5,
                                              verbose=1,
@@ -89,8 +89,8 @@ def train_model(data_trainig):
         session.run(tf.global_variables_initializer())
         # model architecture
         model = Sequential()
-        model.add(LSTM(32, input_shape=(1, 1), return_sequences=True))
-        model.add(LSTM(32))
+        model.add(LSTM(32, activation='relu',input_shape=(1, 1), return_sequences=True))
+        model.add(LSTM(32, activation='relu'))
         model.add(Dropout(0.5))
         model.add(Dense(1))
         model.compile(loss='mean_absolute_error', optimizer='adam')
@@ -125,18 +125,21 @@ def compute_mae(model,data_trainig):
 def forecasting_7_days(model, data_trainig):
 
     #index
-    new_index = pd.date_range(data_trainig['test_index'].tolist()[-1], periods=7).tolist()
+    new_index = pd.date_range(data_trainig['test_index'].tolist()[-1], periods=7).tolist()[1:]
+
+    trainPredict = scaler.inverse_transform(model.predict(data_trainig['X_train']))
 
     # forecasting 7 days
     forcast_7_days = []
+
     #predict the first new day
-    moving_test_window = [data_trainig['X_test'][-1,:].tolist()]
+    moving_test_window = [data_trainig['X_test'][-30, :].tolist()]
     moving_test_window = np.array(moving_test_window)
-    forcast_7_days.append(scaler.inverse_transform(moving_test_window)[0, 0])
 
     # forecasting
     for i in range(0, 7):
         prediction_one_step = model.predict(moving_test_window)
+        print(prediction_one_step)
         forcast_7_days.append(scaler.inverse_transform(prediction_one_step)[0, 0])
         prediction_one_step = prediction_one_step.reshape(1, 1, 1)
         moving_test_window = np.concatenate((moving_test_window[:, 1:, :],prediction_one_step), axis=1)

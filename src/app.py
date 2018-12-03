@@ -275,15 +275,17 @@ def update_y_timeseries(product_options, train_test_split, value):
     return {'data': [go.Scatter(x=dict_G["train_index"].tolist()+\
                                   dict_G["test_index"].tolist(),
                                 y=dict_G["serie"].values,
-                                name="real"),
+                                name="Real"),
                      go.Scatter(x=dict_G["train_index"].tolist(),
                                 y=dict_G["train_prediction"].flatten(),
                                 name="Prediction\nTrain"),
                      go.Scatter(x=dict_G["test_index"].tolist(),
                                 y=dict_G["test_prediction"].flatten(),
                                 name="Prediction\nTest"),
-                     go.Scatter(x=dict_G["new_index"],
-                                y=dict_G["forcast_7_days"],
+                     go.Scatter(x=[dict_G["test_index"].tolist()[-1]]\
+                                  +dict_G["new_index"],
+                                y=[dict_G["test_prediction"].flatten()[-1]]\
+                                  +dict_G["forcast_7_days"],
                                 name="Forecast(7 days)")],
 
             'layout': go.Layout(
@@ -332,7 +334,7 @@ def update_y_timeseries(product_options,value):
 def make_table_forecast(product_options,value):
     dict_G = global_store(value)
     index_ = [date.strftime('%Y-%m-%d') for date in dict_G["new_index"]]
-    predictions_ = [round(num_) for num_ in dict_G["forcast_7_days"]]
+    predictions_ = [num_ for num_ in dict_G["forcast_7_days"]]
     dff = pd.DataFrame(list(zip(index_,predictions_)), columns=['Date', 'Prediction'])
     return dff.to_dict("rows")
 
