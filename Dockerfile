@@ -65,10 +65,3 @@ RUN pip install pandas dash dash_core_components dash_html_components plotly fla
 
 #ports
 EXPOSE 8050
-
-COPY . /SG_merqueo/
-WORKDIR /SG_merqueo/src/
-
-RUN chmod +x run_dashboard.sh
-
-CMD ./run_dashboard.sh
