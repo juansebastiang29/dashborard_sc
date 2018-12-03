@@ -13,6 +13,7 @@ from LSTM_ts import *
 from keras.models import load_model
 from flask_caching import Cache
 import dash_table as dt
+import os
 
 # Setup the app
 app = dash.Dash('MerqueoModelDashboard')
@@ -186,6 +187,8 @@ def global_store(tools_):
     forcast_7_days, new_index = forecasting_7_days(model=load_model("../Output/model_%s.h5"\
                                                                     % data_model['product_name']),
                                                    data_trainig=data_model)
+
+    os.remove(file_name)
     data_model.update({"model_loss": model_loss,
                        "model_val_loss": model_val_loss,
                        "error": [error],
