@@ -79,3 +79,4 @@ pasillo_options = [{'label': str(pasillo), 'value': str(pasillo)}\
                       for pasillo in ["All"]+sorted(df.Pasillo.unique().tolist())]
 
 marks_slider = dict(enumerate(df['month_year'].unique()))
+

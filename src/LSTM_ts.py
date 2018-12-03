@@ -120,29 +120,27 @@ def compute_mae(model,data_trainig):
     values = metrics.mean_absolute_error(data_trainig['Y_test'], test_p.flatten())
     print(values)
     y_t = scaler.inverse_transform(values.reshape((1, 1)))
-    return y_t , testPredict, trainPredict
+    return y_t, testPredict, trainPredict
 
 def forecasting_7_days(model, data_trainig):
 
     #index
-    new_index = pd.date_range(data_trainig['test_index'].tolist()[-1], periods=12).tolist()
+    new_index = pd.date_range(data_trainig['test_index'].tolist()[-1], periods=7).tolist()
 
     # forecasting 7 days
     forcast_7_days = []
     #predict the first new day
-    moving_test_window = [data_trainig['X_test'][-15,:].tolist()]
+    moving_test_window = [data_trainig['X_test'][-1,:].tolist()]
     moving_test_window = np.array(moving_test_window)
+    forcast_7_days.append(scaler.inverse_transform(moving_test_window)[0, 0])
 
     # forecasting
-    for i in range(0, 12):
-
+    for i in range(0, 7):
         prediction_one_step = model.predict(moving_test_window)
-        print(prediction_one_step)
-        print(prediction_one_step[0, 0])
         forcast_7_days.append(scaler.inverse_transform(prediction_one_step)[0, 0])
-        print("This is the prediction", prediction_one_step)
-        prediction_one_step = prediction_one_step.reshape(1,1,1)
-        moving_test_window = np.concatenate((moving_test_window[:,1:,:],prediction_one_step), axis=1)
+        prediction_one_step = prediction_one_step.reshape(1, 1, 1)
+        moving_test_window = np.concatenate((moving_test_window[:, 1:, :],prediction_one_step), axis=1)
+
     tf.reset_default_graph()
     clear_session()
     print(forcast_7_days)
