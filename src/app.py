@@ -334,7 +334,7 @@ def update_y_timeseries(product_options,value):
 def make_table_forecast(product_options,value):
     dict_G = global_store(value)
     index_ = [date.strftime('%Y-%m-%d') for date in dict_G["new_index"]]
-    predictions_ = [num_ for num_ in dict_G["forcast_7_days"]]
+    predictions_ = [round(num_) for num_ in dict_G["forcast_7_days"]]
     dff = pd.DataFrame(list(zip(index_,predictions_)), columns=['Date', 'Prediction'])
     return dff.to_dict("rows")
 
